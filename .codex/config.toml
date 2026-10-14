@@ -1,0 +1,4 @@
+
+
+[plugins."pstack@local-plugins"]
+enabled = true

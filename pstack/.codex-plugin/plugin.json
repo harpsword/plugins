@@ -1,0 +1,10 @@
+{
+  "name": "pstack",
+  "version": "0.15.24-codex.2",
+  "description": "All 54 pstack skills adapted for Codex, preserving explicit invocation, workflow routing, engineering principles, and verification gates.",
+  "author": {
+    "name": "Lauren Tan"
+  },
+  "license": "MIT",
+  "skills": "./skills/"
+}

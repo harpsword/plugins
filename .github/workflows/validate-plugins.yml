@@ -6,6 +6,12 @@ on:
       - ".cursor-plugin/marketplace.json"
       - "**/plugin.json"
       - "schemas/**"
+      - ".agents/plugins/marketplace.json"
+      - "pstack/codex/**"
+      - "pstack/skills/**"
+      - "pstack/agents/**"
+      - "scripts/*pstack-codex.py"
+      - ".github/workflows/validate-plugins.yml"
 
 jobs:
   validate:
@@ -22,3 +28,10 @@ jobs:
 
       - name: Validate plugin definitions
         run: node scripts/validate-plugins.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Codex package and shared resources
+        run: python3 scripts/validate-pstack-codex.py
