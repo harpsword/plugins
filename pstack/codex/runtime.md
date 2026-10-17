@@ -40,6 +40,10 @@ The installed root contains `.codex-plugin/plugin.json`, `codex/`, `skills/`, an
 
 [Native setup](../skills/setup-pstack/SKILL.md) owns the role names, JSON schema, and configuration procedure. Read project `.codex/pstack-models.json`, otherwise `${CODEX_HOME:-~/.codex}/pstack-models.json`. The project file replaces the personal file completely.
 
+Choose the role from the work required, before resolving its model. Reproducible checks such as installation state, hashes, configuration comparisons, and test results use `swarm workers`. An independent or read-only audit does not become a judgment task because of its title. Routine prose and evidence summaries use `judgment and prose` or the workflow's named synthesizer role.
+
+Reserve `hardest tasks` for difficult judgment or design, such as cross-cutting architecture, subtle concurrency, or competing requirements that the available checks cannot settle. State the unresolved decision when escalating. Task length, file count, and a request for independent verification alone do not justify escalation. Use design and adversarial-review panels for substantive design or judgment, or when explicitly requested; preserve their configured seats. A deterministic check does not need such a panel.
+
 | Source model instruction | Codex interpretation |
 | --- | --- |
 | Missing role, hard-coded Cursor default slug, `auto`, `inherit-parent` | Inherit the host model and effort by omitting both overrides. |
