@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,7 +61,11 @@ def check_package(plugin):
     forbidden = ('~/.cursor/', '.cursor/skills/', 'pstack-models.mdc', 'cloud_base_branch',
                  'git show origin/main:pstack/', 'node pstack/skills/', 'path in the system prompt',
                  'cloud default', 'Chain rebases run in cloud', 'via the loop skill',
-                 'subagent_type:', 'grok-4.7-', 'claude-opus-5-5-', 'run_in_background:', '/loop')
+                 'subagent_type:', 'grok-4.7-', 'claude-opus-5-5-', 'run_in_background:', '/loop',
+                 'allow_multiple:', 'from `cursor-team-kit`', '`/deslop`', 'on a lane VM',
+                 'without waiting for its stop to land', 'Each tick re-reads both playbooks from trunk',
+                 "On the operator's go, arm `heartbeat 1h`",
+                 'Stand down a stuck lane and dispatch its replacement now.')
     for path in markdown:
         text = path.read_text()
         for token in forbidden:
@@ -124,11 +129,12 @@ def main():
         else:
             raise ValueError('validator missed a missing runtime resource')
     check_audit(plugin)
+    subprocess.run([sys.executable, str(ROOT / 'scripts/test-pstack-adapter.py')], check=True)
     require(source_before == {name: snapshot(ROOT / 'pstack' / name) for name in source_before},
             'build modified original Cursor workflows')
     print(f'PASS: {counts[0]} skills, {counts[1]} Markdown resources, 53 explicit / 1 automatic; '
           'resource inventory, links, relocation, deterministic build, failure detection, '
-          'history-unknown audit, and original source preservation.')
+          'history-unknown audit, plan continuation contracts, and original source preservation.')
 
 
 if __name__ == '__main__':

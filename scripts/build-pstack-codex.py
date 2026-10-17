@@ -28,6 +28,13 @@ def frontmatter(text):
 
 def adapt_text(text, names):
     replacements = {
+        'the `deslop` skill from the `cursor-team-kit` plugin (`/deslop`)': 'the diff cleanup procedure in the Codex runtime guide',
+        '`/deslop` from `cursor-team-kit`': 'the runtime diff cleanup procedure',
+        '`/deslop`': 'the runtime diff cleanup procedure',
+        '`cursor-team-kit` publishes `control-cli` (CLIs and TUIs) and `control-ui` (browser / Electron / web UIs).': 'Use the runtime-selected shell/PTY for CLI work and connected browser/computer controls for UI work.',
+        '`control-ui` or `control-cli` from `cursor-team-kit`': 'the actual browser/computer or shell/PTY capability selected through the runtime guide',
+        '`control-ui` from `cursor-team-kit`': 'the connected browser/computer capability selected through the runtime guide',
+        '`control-cli` from `cursor-team-kit`': 'the shell/PTY capability selected through the runtime guide',
         'pstack/skills/': '<installed-package>/skills/',
         '~/.cursor/rules/pstack-models.mdc': '.codex/pstack-models.json',
         'pstack-models.mdc': 'pstack-models.json',
