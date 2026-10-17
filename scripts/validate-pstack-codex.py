@@ -4,6 +4,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -28,60 +29,80 @@ def require(condition, message):
 
 
 def check_package(plugin):
-    source = ROOT / 'pstack'
+    source = builder.SOURCE
     manifest = json.loads((plugin / '.codex-plugin/plugin.json').read_text())
     cursor = json.loads((source / '.cursor-plugin/plugin.json').read_text())
     require(manifest['name'] == cursor['name'] == 'pstack', 'plugin identity')
     require(manifest['skills'] == './skills/', 'Codex skill root')
-    require(not (plugin / 'plugin.json').exists(), 'portable manifest would bypass adapter')
     expected = {p.parent.name for p in (source / 'skills').glob('*/SKILL.md')}
     actual = {p.parent.name for p in (plugin / 'skills').glob('*/SKILL.md')}
-    require(expected == actual and len(actual) == 54, 'all 54 upstream skills must be exposed')
-    automatic = []
-    for name in sorted(expected):
-        skill = plugin / 'skills' / name / 'SKILL.md'
-        description, _, body = builder.frontmatter(skill.read_text())
-        _, explicit, _ = builder.frontmatter((source / 'skills' / name / 'SKILL.md').read_text())
-        require(bool(description.strip()), f'{name}: empty description')
-        require(f'\nname: {name}\n' in skill.read_text(), f'{name}: invalid identity')
-        policy = (skill.parent / 'agents/openai.yaml').read_text()
-        require(policy == 'policy:\n  allow_implicit_invocation: ' + str(not explicit).lower() + '\n',
-                f'{name}: invocation policy drift')
-        require('the Codex runtime adapter' in body, f'{name}: runtime not reachable')
-        if not explicit:
-            automatic.append(name)
-    require(automatic == ['setup-pstack'], 'automatic entrypoints changed')
-
-    # Every upstream skill asset and delegate brief must survive packaging.
-    for folder in ('skills', 'agents'):
+    require(expected == actual, 'upstream skill inventory changed')
+    adaptations = json.loads((source / 'codex/patches.json').read_text())
+    resources = {}
+    for folder in ('skills', 'agents', 'assets', 'docs', 'automations', '.codex-plugin'):
         for original in (source / folder).rglob('*'):
-            if original.is_file() and 'node_modules' not in original.parts:
-                require((plugin / original.relative_to(source)).is_file(), f'missing resource: {original}')
+            if original.is_file() and not {'node_modules', '__pycache__'}.intersection(original.parts):
+                resources[original.relative_to(source).as_posix()] = original.read_bytes()
+    resources.update({
+        'codex/runtime.md': (source / 'codex/runtime.md').read_bytes(),
+        'README.md': (source / 'codex/README.md').read_bytes(),
+        'LICENSE': (source / 'LICENSE').read_bytes(),
+    })
+    automatic = []
+    for relative, original in list(resources.items()):
+        path = plugin / relative
+        adapted = original
+        if relative in adaptations['scripts']:
+            text = original.decode()
+            for patch in adaptations['scripts'][relative]:
+                text = text.replace(patch['old'], patch['new'])
+            adapted = text.encode()
+        if relative in adaptations['overrides']:
+            adapted = (source / 'codex/overrides' / relative).read_bytes()
+        if path.name == 'SKILL.md' and path.parent.parent == plugin / 'skills':
+            description, _, original_body = builder.frontmatter(adapted.decode())
+            _, explicit, _ = builder.frontmatter(original.decode())
+            packaged = path.read_text()
+            actual_description, _, body = builder.frontmatter(packaged)
+            require(description.strip() and actual_description == description,
+                    f'{relative}: description drift')
+            header = (f'---\nname: {path.parent.name}\n'
+                      f'description: {json.dumps(description, ensure_ascii=False)}\n---\n\n')
+            require(packaged.startswith(header), f'{relative}: invalid Codex metadata')
+            runtime = os.path.relpath(plugin / 'codex/runtime.md', path.parent)
+            pointer = (f'Read [the Codex runtime adapter]({runtime}) before executing this skill. '
+                       'It governs host operations; the upstream workflow still owns task requirements.\n\n')
+            require(body == pointer + original_body, f'{relative}: workflow body drift')
+            policy = path.parent / 'agents/openai.yaml'
+            policy_text = 'policy:\n  allow_implicit_invocation: ' + str(not explicit).lower() + '\n'
+            require(policy.read_text() == policy_text, f'{relative}: invocation policy drift')
+            resources[policy.relative_to(plugin).as_posix()] = policy_text.encode()
+            resources[relative] = (header + pointer + original_body).encode()
+            if not explicit:
+                automatic.append(path.parent.name)
+        elif relative.startswith('agents/') and path.suffix == '.md':
+            _, head, body = original.decode().split('---', 2)
+            pointer = ('Read [the Codex runtime adapter](../codex/runtime.md) before this brief. '
+                       'It governs host operations.\n')
+            resources[relative] = ('---' + head + '---\n\n' + pointer + body).encode()
+        else:
+            resources[relative] = adapted
+    require(automatic == ['setup-pstack'], 'automatic entrypoints changed')
     markdown = list(plugin.rglob('*.md'))
-    forbidden = ('~/.cursor/', '.cursor/skills/', 'pstack-models.mdc', 'cloud_base_branch',
-                 'git show origin/main:pstack/', 'node pstack/skills/', 'path in the system prompt',
-                 'cloud default', 'Chain rebases run in cloud', 'via the loop skill',
-                 'subagent_type:', 'grok-4.7-', 'claude-opus-5-5-', 'run_in_background:', '/loop',
-                 'allow_multiple:', 'from `cursor-team-kit`', '`/deslop`', 'on a lane VM',
-                 'without waiting for its stop to land', 'Each tick re-reads both playbooks from trunk',
-                 "On the operator's go, arm `heartbeat 1h`",
-                 'Stand down a stuck lane and dispatch its replacement now.')
     for path in markdown:
-        text = path.read_text()
-        for token in forbidden:
-            require(token not in text, f'{path}: unadapted host token {token}')
-        for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)', text):
+        for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)', path.read_text()):
             if '://' in target or target.startswith('#') or target == 'url':
-                continue  # Upstream synthesizer template contains literal [label](url).
+                continue
             resource = (path.parent / target.split('#', 1)[0]).resolve()
             require(resource.is_relative_to(plugin.resolve()), f'escaping reference: {path}: {target}')
             require(resource.exists(), f'broken reference: {path}: {target}')
-    # Principles remain the original rules; only host vocabulary and runtime pointer differ.
-    for name in sorted(n for n in expected if n.startswith('principle-')):
-        _, _, original = builder.frontmatter((source / 'skills' / name / 'SKILL.md').read_text())
-        require(builder.adapt_text(original, expected) in (plugin / 'skills' / name / 'SKILL.md').read_text(),
-                f'principle body drift: {name}')
-    return len(actual), len(markdown)
+    actual_resources = snapshot(plugin)
+    require(set(actual_resources) == set(resources),
+            f'package inventory drift: missing {sorted(set(resources) - set(actual_resources))}; '
+            f'extra {sorted(set(actual_resources) - set(resources))}')
+    for relative, expected_bytes in resources.items():
+        require((plugin / relative).read_bytes() == expected_bytes, f'resource content drift: {relative}')
+    return len(actual), len(markdown), len(automatic)
 
 
 def check_audit(plugin):
@@ -97,8 +118,7 @@ def check_audit(plugin):
             path = bin_dir / name
             path.write_text('#!/bin/sh\nexit 1\n')
             path.chmod(0o755)
-        import os
-        env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'], PSTACK_TRANSCRIPTS_DIR='')
+        env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'])
         result = subprocess.run(['bash', str(plugin / 'skills/poteto-mode/scripts/worktree-audit.sh'),
                                  '-b', 'HEAD', str(repo)], env=env, text=True, capture_output=True, check=True)
         require('verify-chat-usage' in result.stdout, 'unknown chat usage must not be safe to prune')
@@ -106,7 +126,7 @@ def check_audit(plugin):
 
 
 def main():
-    source_before = {name: snapshot(ROOT / 'pstack' / name) for name in ('skills', 'agents')}
+    source_before = snapshot(builder.SOURCE)
     catalog = json.loads((ROOT / '.agents/plugins/marketplace.json').read_text())
     entry = next(p for p in catalog['plugins'] if p['name'] == 'pstack')
     plugin = (ROOT / entry['source']['path']).resolve()
@@ -130,11 +150,11 @@ def main():
             raise ValueError('validator missed a missing runtime resource')
     check_audit(plugin)
     subprocess.run([sys.executable, str(ROOT / 'scripts/test-pstack-adapter.py')], check=True)
-    require(source_before == {name: snapshot(ROOT / 'pstack' / name) for name in source_before},
-            'build modified original Cursor workflows')
-    print(f'PASS: {counts[0]} skills, {counts[1]} Markdown resources, 53 explicit / 1 automatic; '
+    require(source_before == snapshot(builder.SOURCE), 'build modified original source resources')
+    print(f'PASS: {counts[0]} skills, {counts[1]} Markdown resources, '
+          f'{counts[0] - counts[2]} explicit / {counts[2]} automatic; '
           'resource inventory, links, relocation, deterministic build, failure detection, '
-          'history-unknown audit, plan continuation contracts, and original source preservation.')
+          'history-unknown audit, upstream plan checks, and original source preservation.')
 
 
 if __name__ == '__main__':

@@ -7,10 +7,8 @@ on:
       - "**/plugin.json"
       - "schemas/**"
       - ".agents/plugins/marketplace.json"
-      - "pstack/codex/**"
-      - "pstack/skills/**"
-      - "pstack/agents/**"
-      - "scripts/*pstack-codex.py"
+      - "pstack/**"
+      - "scripts/**"
       - ".github/workflows/validate-plugins.yml"
 
 jobs:
@@ -35,3 +33,10 @@ jobs:
 
       - name: Validate Codex package and shared resources
         run: python3 scripts/validate-pstack-codex.py
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Verify Codex tool runtime
+        run: python3 scripts/test-pstack-runtime.py

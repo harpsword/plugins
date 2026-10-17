@@ -1,7 +1,7 @@
 {
   "name": "pstack",
-  "version": "0.15.24-codex.4",
-  "description": "All 54 pstack skills adapted for Codex, preserving explicit invocation, workflow routing, engineering principles, and verification gates.",
+  "version": "0.15.24-codex.6",
+  "description": "Upstream pstack workflows with a Codex runtime, preserved invocation policy, and native executable adaptations.",
   "author": {
     "name": "Lauren Tan"
   },
