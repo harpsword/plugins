@@ -60,7 +60,26 @@ Respect actual concurrency and nesting limits. Queue required lanes rather than 
 
 Before replacing a stuck writer, interrupt it and confirm it has stopped. If termination is unconfirmed, give the replacement a separate checkout and branch with a new ownership generation. Reject late results from the superseded owner. Background execution does not imply survival across sessions.
 
-Arena candidates, Eval candidates, and their blind judges require a new agent with `fork_turns="none"` or an equivalent empty context, even with an inherited model. Supply only role-specific neutral host facts from this guide. Do not send the coordinator runtime, Arena/Eval instructions, or resources that expose the experiment to participants.
+### Independent review and verification
+
+Every delegate assigned an independent review, audit, second opinion, or verification verdict must be a new agent with `fork_turns="none"` or an equivalent empty context. This applies even with an inherited model and does not require a pre-existing plan document. Model inheritance and conversation-history inheritance are separate choices.
+
+Apply this by assignment, including:
+
+| Assignment | Context to provide explicitly |
+| --- | --- |
+| Interrogate reviewers and other independent code or design reviewers | Confirmed intent, requirements, constraints, the exact code or document version, relevant surrounding material, and the review rubric. |
+| Reflect's Judgment, Tooling, and Divergent reviewers | Each lens's prompt and the same scoped transcript or digest as evidence, with any evidence-access limits stated. |
+| Independent verifier or audit lanes in Swarm, Shipping, Autopilot, and Orchestrate | Exact base/head SHAs or artifact snapshots, acceptance criteria, verification method, environment, and receipts to check independently. |
+| Figure-it-out judges and Show-me-your-work trail reviewers | The task contract and outputs to judge, or the decision trail and scoped transcript to audit. |
+
+Give each reviewer a self-contained brief with scope, expected output, evidence paths, and authorization boundaries. Identify uncommitted changes with a fixed diff or snapshot as well as the base SHA. Separate confirmed facts from hypotheses. Provide necessary factual background from the conversation without forwarding the coordinator's preferred verdict, advocacy, or other reviewers' current conclusions. A delegated verifier must not be the agent that authored the work it is independently checking.
+
+Transcript and trail reviewers may inspect the conversation as explicit, untrusted evidence; that does not permit implicit history inheritance. Synthesizers and lead reviewers need the reviewers' outputs and may retain the context needed to reconcile them. Ordinary implementation workers, explorers, investigators, and stateful follow-ups are not made independent reviewers by their titles; choose their context for the actual assignment and preserve required execution state. A new agent alone does not establish empty history. If the host cannot provide an empty context, report the independent-review gate as unfulfilled rather than claiming independence.
+
+### Blind candidates and judges
+
+Arena candidates (including Architect's Arena runners), Eval candidates, and their blind judges also require a new agent with `fork_turns="none"` or an equivalent empty context, even with an inherited model. Supply only role-specific neutral host facts from this guide. Do not send the coordinator runtime, Arena/Eval instructions, or resources that expose the experiment to participants.
 
 Candidates receive the organic task, necessary constraints and grounding, their own paths, and deliverables. Exclude the rubric, experimental purpose, other candidates, and model/variant mapping. Eval also requires sanitized candidate-visible names. Judges receive necessary task context, the rubric, and completed outputs under neutral labels. Keep identities and the preferred result private. Inspect referenced files as well as prompts for leaks. If an upstream runner brief leaks coordinator context, compose a scoped brief instead of forwarding it verbatim. A contaminated result must be discarded and rerun with fresh context. If fresh context is unavailable, the blind gate is blocked.
 
