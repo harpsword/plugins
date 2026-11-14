@@ -83,8 +83,8 @@ class RuntimeTests(unittest.TestCase):
         self.preload.write_text(INSTALL_PRELOAD)
         self.log = self.base / 'install calls.jsonl'
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in ('PSTACK_TOOLS_DIR', 'PSTACK_RUN_DIR', 'ORCH_STORE',
-                                   'ORCH_REPO', 'NODE_OPTIONS', 'BUN_OPTIONS')}
+                    if key not in ('PSTACK_TOOLS_DIR', 'PSTACK_RUN_DIR',
+                                   'NODE_OPTIONS', 'BUN_OPTIONS')}
         self.env.update(PATH=str(Path(self.bun).parent) + os.pathsep + self.env.get('PATH', ''),
                         TEST_INSTALL_LOG=str(self.log), TEST_READY_FILE=str(self.ready))
 
@@ -113,12 +113,12 @@ class RuntimeTests(unittest.TestCase):
         argv = [self.bun]
         if preload:
             argv.extend(('--preload', str(self.preload)))
-        argv.extend((str(tools / 'orch/orch.ts'), '--help'))
+        argv.extend((str(tools / 'watch-pr/watch-pr'), '--help'))
         command = (self.copy_command(tools) + ' &&\n' + shlex.join(argv) + ' &&\n'
                    + f'printf \'%s\\n\' {shlex.quote(str(tools))} > {shlex.quote(str(self.ready))}')
         return self.execute(['sh', '-c', command], **env)
 
-    def invoke(self, entrypoint='orch/orch.ts', args=(), tools=None, preload=False, **env):
+    def invoke(self, entrypoint='watch-pr/watch-pr', args=(), tools=None, preload=False, **env):
         argv = [self.bun]
         if preload:
             argv.extend(('--preload', str(self.preload)))
@@ -142,7 +142,7 @@ class RuntimeTests(unittest.TestCase):
     def test_fresh_copy_is_complete_writable_and_ready_after_real_initialization(self):
         result = self.prepare(preload=True)
         self.assert_success(result)
-        self.assertIn('Usage: orch', result.stdout)
+        self.assertIn('Usage: watch-pr', result.stdout)
         self.assert_ready()
         self.assertEqual(stat.S_IMODE(self.tools.stat().st_mode),
                          stat.S_IMODE(self.scripts.stat().st_mode) | stat.S_IWUSR)
@@ -161,16 +161,13 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(calls[0]['cwd'], str(self.tools))
         self.assertEqual((calls[0]['ready'], calls[0]['marker']), (False, False))
 
-    def test_warm_copy_reuses_both_actual_entrypoints_without_installing(self):
+    def test_warm_copy_reuses_actual_entrypoint_without_installing(self):
         self.assert_success(self.prepare())
         marker = self.tools / 'node_modules/.poteto-mode-tools-install-key'
         before = marker.read_bytes(), marker.stat().st_mtime_ns
-        for entrypoint, expected in (('orch/orch.ts', 'Usage: orch'),
-                                     ('watch-pr/watch-pr', 'Usage: watch-pr')):
-            with self.subTest(entrypoint=entrypoint):
-                result = self.invoke(entrypoint, ('--help',), preload=True, TEST_FAIL_INSTALL='1')
-                self.assert_success(result)
-                self.assertIn(expected, result.stdout)
+        result = self.invoke(args=('--help',), preload=True, TEST_FAIL_INSTALL='1')
+        self.assert_success(result)
+        self.assertIn('Usage: watch-pr', result.stdout)
         self.assertEqual(self.install_calls(), [])
         self.assertEqual((marker.read_bytes(), marker.stat().st_mtime_ns), before)
         self.assert_ready()
@@ -213,40 +210,31 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(self.install_calls()), 1)
         self.assertTrue((self.tools / 'node_modules/.poteto-mode-tools-install-key').is_file())
 
-    def test_cold_bootstrap_preserves_relative_store_argument_and_consumer_cwd(self):
+    def test_cold_bootstrap_preserves_arguments_exit_code_and_consumer_cwd(self):
         self.assert_success(self.execute(['sh', '-c', self.copy_command(self.tools)]))
-        result = self.invoke(args=('init', '--store', 'ledger with spaces', '--json'))
-        self.assert_success(result)
-        store = self.cwd / 'ledger with spaces'
-        self.assertEqual(json.loads(result.stdout[result.stdout.index('{'):]), {'store': str(store)})
-        self.assertEqual((store / 'units.tsv').read_text(), 'id\ttrack\tstate\tbranch\tpr\tsha\tbrief\n')
-        self.assertFalse((self.tools / 'ledger with spaces').exists())
-        result = self.invoke(args=('unit', 'add', 'work-1', '--track', 'track with spaces',
-                                   '--brief', 'brief with spaces.md', '--store', 'ledger with spaces', '--json'))
-        self.assert_success(result)
-        unit = json.loads(result.stdout)
-        self.assertEqual((unit['id'], unit['track'], unit['brief']),
-                         ('work-1', 'track with spaces', 'brief with spaces.md'))
+        before = snapshot(self.cwd)
+        result = self.invoke(args=('--pr', 'invalid'), preload=True)
+        self.assertEqual(result.returncode, 64, result.stdout + result.stderr)
+        self.assertIn('must be a positive integer', result.stderr)
+        calls = self.install_calls()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]['cwd'], str(self.tools))
+        self.assertTrue((self.tools / 'node_modules/.poteto-mode-tools-install-key').is_file())
+        self.assertEqual(snapshot(self.cwd), before)
 
-    def test_actual_entrypoints_preserve_error_exit_codes(self):
+    def test_actual_entrypoint_preserves_error_exit_codes(self):
         self.assert_success(self.prepare())
-        self.assert_success(self.invoke(args=('init', '--store', 'ledger with spaces')))
-        cold = self.run / 'cold error tools'
-        self.assert_success(self.execute(['sh', '-c', self.copy_command(cold)]))
-        missing = self.invoke(tools=cold, args=('unit', 'get', 'absent', '--store', 'ledger with spaces'))
-        self.assertEqual(missing.returncode, 2, missing.stdout + missing.stderr)
-        self.assertEqual(missing.stderr, 'error: unit absent not found\n')
         invalid = self.invoke(args=('--invalid-option',))
-        self.assertEqual(invalid.returncode, 1, invalid.stdout + invalid.stderr)
-        self.assertIn("error: unknown option '--invalid-option'", invalid.stderr)
-        watcher = self.invoke('watch-pr/watch-pr', ('--pr', 'invalid'))
+        self.assertEqual(invalid.returncode, 64, invalid.stdout + invalid.stderr)
+        self.assertIn("unknown option '--invalid-option'", invalid.stderr)
+        watcher = self.invoke(args=('--pr', 'invalid'))
         self.assertEqual(watcher.returncode, 64, watcher.stdout + watcher.stderr)
         self.assertIn('must be a positive integer', watcher.stderr)
 
     def test_original_bundled_bun_tests_run_from_ready_copy(self):
         self.assert_success(self.prepare())
         self.assert_ready()
-        result = subprocess.run([self.bun, 'test', 'orch', 'watch-pr', 'check-plan.test.ts'],
+        result = subprocess.run([self.bun, 'test', 'watch-pr', 'check-plan.test.ts'],
                                 cwd=self.tools, env=self.env, text=True, capture_output=True, timeout=120)
         self.assert_success(result)
         self.assertRegex(result.stderr, r'\b[1-9][0-9]* pass\b')

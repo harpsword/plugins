@@ -14,6 +14,7 @@ Use the current session's tools and schemas. These mappings express intent, not 
 | `Read`, `Grep`, `Glob`, `Shell` | Use actual file, search, and shell tools. Their names need not match. |
 | `readonly`, Ask mode | Give the delegate an explicit no-edit and no-external-write contract. Tool and MCP access depends on the host. |
 | `run_in_background`, `environment: "cloud"`, `cloud_base_branch` | Use actual asynchronous delegation. Prepare an isolated checkout at the required ref and pass its absolute path and SHA. These source fields do not create a VM or durable process. |
+| Project tracker (`notes.md`), Project store, PR and CI event subscriptions | Keep the tracker and program state as files in this run's artifact directory, described under Run artifacts. Use event subscriptions only when the host exposes them; otherwise check live PR and CI state with `gh` or the forge at each decision point, as Continuation describes. These names do not provide a shared store or event delivery. |
 | `/loop`, hourly heartbeat | Use current-session waiting or an authorized scheduler as described under Continuation. |
 | `mcps/`, assumed connectors or credentials | Discover actual available tools. Report unavailable evidence sources and credentials. |
 
@@ -52,7 +53,7 @@ Reserve `hardest tasks` for difficult judgment or design, such as cross-cutting 
 | Slug with effort or `-fast`, fallback provider family | Never construct or probe guessed slugs. Use only exposed model choices. Fast service requires actual tool support and a user request. |
 | Unavailable configured model | Disclose and inherit unless diversity is required. Required but unavailable diversity is an unpassed gate. |
 
-Keep all configured panel seats. Defaults are two inherited seats for arena runners, architect runners, and interrogate reviewers, plus one inherited seat in the arena cross-judge pool. Reflect retains three lenses and a separate synthesizer. Independent seats on the same model are not different model families. If model overrides require fresh context, supply a self-contained brief with the supported fresh-context option.
+Keep all configured panel seats. Defaults are two inherited seats for arena runners, architect runners, and interrogate reviewers, plus one inherited seat in the arena cross-judge pool. An inherited pool entry never judges, so the default pool makes Arena skip its judge and say so; a judge needs a configured, exposed model from another family. Reflect retains three lenses and a separate synthesizer. Independent seats on the same model are not different model families. If model overrides require fresh context, supply a self-contained brief with the supported fresh-context option.
 
 ## Worker ownership and blind contexts
 
@@ -129,8 +130,6 @@ Report delivery failures. Do not promise that a remote routine can drain a local
 
 Record the installed package's absolute root and version for continuation. Use a host-provided writable artifact directory, otherwise `<project-root>/.pstack/runs/<unique-run-id>/`. Create only this run's directory, keep plans in its `docs/`, and pass its absolute path to workers. Keep operational records out of commits unless requested. Resolve source plan placeholders to actual installed-package paths, including checker, execution playbook, and leaf skill paths. Re-read those recorded package paths after wakeup instead of sources on trunk.
 
-Bind every orchestration command, including `orch init`, with `--store` or `ORCH_STORE` to the durable run directory. Keep that ledger path separate from the executable tools path and the consumer's working directory.
-
 Before any bundled Bun consumer starts, the coordinator prepares one writable copy of the complete generated `skills/poteto-mode/scripts/` directory. Resolve `pstack_package` to the actual absolute installed package root and `pstack_run` to this run's absolute writable directory before using the following sequence. The run directory must already exist. `mkdir` must fail if its tools destination already exists.
 
 ```bash
@@ -138,7 +137,7 @@ pstack_tools="$pstack_run/tools" &&
 mkdir "$pstack_tools" &&
 cp -R "$pstack_package/skills/poteto-mode/scripts/." "$pstack_tools/" &&
 chmod u+w "$pstack_tools" &&
-bun "$pstack_tools/orch/orch.ts" --help
+bun "$pstack_tools/watch-pr/watch-pr" --help
 ```
 
 Wait for this sequence to finish successfully before recording and sharing the absolute tools path as ready. The copied entrypoint runs upstream bootstrap, which installs locked dependencies and checks and writes its install-key marker. Running only `bun install` does not establish readiness. Missing Bun, dependency access, writable storage, or a failed command blocks consumers. Do not publish a failed copy as ready.
