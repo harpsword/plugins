@@ -14,6 +14,24 @@ fork it. improve it. make it yours. PRs are welcome!
 
 ## install
 
+### Codex
+
+The Codex adapter includes every upstream skill and preserves the original invocation policy: start with `$pstack:poteto-mode`, which reads the other skills as its workflows need them. Only `setup-pstack` allows automatic selection. The original Cursor package is unchanged.
+
+From this repository root:
+
+```bash
+python3 scripts/build-pstack-codex.py
+codex plugin marketplace add .
+codex plugin add pstack@local-plugins
+```
+
+Start a new chat and use `$pstack:setup-pstack` to configure supported model roles and reasoning budgets. The build outputs `dist/pstack-codex/`; rebuild and reinstall after edits. See [Codex setup, capabilities, and maintenance](https://github.com/cursor/plugins/blob/main/pstack/codex/README.md) for details and [the runtime adapter](https://github.com/cursor/plugins/blob/main/pstack/codex/runtime.md) for host operations. Missing models, live tools, history, or schedulers remain explicit capability limits rather than passing verification gates.
+
+Validate with `python3 scripts/validate-pstack-codex.py`.
+
+### Cursor
+
 ```bash
 /add-plugin pstack
 ```

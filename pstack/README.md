@@ -16,7 +16,7 @@ fork it. improve it. make it yours. PRs are welcome!
 
 ### Codex
 
-The Codex adapter includes all 54 skills and preserves the original invocation policy: start with `$pstack:poteto-mode`, which reads the other skills as its workflows need them. Only `setup-pstack` allows automatic selection. The original Cursor package is unchanged.
+The Codex adapter includes every upstream skill and preserves the original invocation policy: start with `$pstack:poteto-mode`, which reads the other skills as its workflows need them. Only `setup-pstack` allows automatic selection. The original Cursor package is unchanged.
 
 From this repository root:
 
